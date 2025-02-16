@@ -302,27 +302,70 @@ def calculate_velocity(img1_path: str, img2_path: str, time_delta=None) -> float
     
     return velocity/1000
 
+from picamzero import Camera
+from PIL import Image
+from PIL.ExifTags import TAGS
+from datetime import datetime
+
+def capture_image(image_path):
+    with Camera() as camera:
+        camera.resolution = (4056, 3040)
+        camera.capture(image_path)
+
+def get_image_capture_time(image_path):
+    try:
+        image = Image.open(image_path)
+        exif_data = image._getexif()
+        if exif_data:
+            for tag, value in exif_data.items():
+                tag_name = TAGS.get(tag, tag)
+                if tag_name == 'DateTimeOriginal':
+                    return value
+    except Exception as e:
+        print(f"Error reading EXIF data from {image_path}: {e}")
+    return None
+
+def capture_images(image_folder, time_sleep, num_images=5):
+    for i in range(num_images):
+        image_path = f"{image_folder}/photo_{i}.jpg"
+        capture_image(image_path)
+        time = get_image_capture_time(image_path)
+        time.sleep(time_sleep)
+    
+        print(f"Image {i} captured at {time}")
 
 def main():
-    # log the time
-    time = datetime.now()
-    print(f"Time: {time}")
-    # open the earth images folder
-    velocities = []
-    earth_img_folder = os.listdir('earth_img')
-    for i in range(len(earth_img_folder) - 1):
-        img1 = 'earth_img/' + earth_img_folder[i]
-        img2 = 'earth_img/' + earth_img_folder[i+1]
-        vel = calculate_velocity(img1, img2)
-        if vel is not None:
-            velocities.append(vel)
-            print(vel)
+    time_start = datetime.now()
+    print(f"Time: {time_start}")
+    image_folder = 'earth_img_capture'
+    if not os.path.exists(image_folder):
+        os.makedirs(image_folder)
 
-    # print mean velocity
-    time_finish = datetime.now()
-    print(f"Time finish: {time_finish}")
-    print(f"Time taken: {time_finish - time}")
-    print(f"Mean velocity: {np.mean(velocities)} km/s")
+    capture_images(image_folder, 5)
+    velocities = []
+
+
+
+# def main():
+#     # log the time
+#     time = datetime.now()
+#     print(f"Time: {time}")
+#     # open the earth images folder
+#     velocities = []                 
+#     earth_img_folder = os.listdir('earth_img')
+#     for i in range(len(earth_img_folder) - 1):
+#         img1 = 'earth_img/' + earth_img_folder[i]
+#         img2 = 'earth_img/' + earth_img_folder[i+1]
+#         vel = calculate_velocity(img1, img2)
+#         if vel is not None:
+#             velocities.append(vel)
+#             print(vel)
+
+#     # print mean velocity
+#     time_finish = datetime.now()
+#     print(f"Time finish: {time_finish}")
+#     print(f"Time taken: {time_finish - time}")
+#     print(f"Mean velocity: {np.mean(velocities)} km/s")
 
     # print(calculate_velocity(TARGET_PATH, REFERENCE_PATH))
 
