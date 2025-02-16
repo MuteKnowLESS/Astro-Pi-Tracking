@@ -171,28 +171,6 @@ def load_image(image_path: str):
         raise FileNotFoundError(f"Image not found: {image_path}")
     return image
 
-def preprocess_image(img: str, sf: float = 1.0):
-    """
-    Preprocess the image (resize, convert to grayscale, and return in float32 format).
-    """
-    # Load the image
-    image = cv2.imread(img) 
-    
-    # Check if the image exists
-    if image is None:
-        raise FileNotFoundError(f"Image not found: {img}")
-    
-    # Downsample the image
-    image_resized = cv2.resize(image, (0, 0), fx=sf, fy=sf)
-    
-    # Convert the image to grayscale
-    image_gray = cv2.cvtColor(image_resized, cv2.COLOR_BGR2GRAY)
-    
-    # Convert the image to float32
-    #image_float = np.float32(image_gray)
-    
-    return image_gray #image_float
-
 def sift_detector(img):
     """
     Detect the SIFT features in the image.
