@@ -98,7 +98,7 @@ k = [f_x, 0, c_x,]
 import cv2
 import numpy as np
 import os
-#from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 from exif import Image
 from datetime import datetime
 from logzero import logger, logfile
@@ -118,15 +118,15 @@ take 10 images 5 seconds apart. process the images in pairs to calculate the spe
 PROGRAM_START_TIME = datetime.now()
 PROGRAM_TIMEOUT = 600 # 10 minutes
 
-TARGET_PATH = 'earth_img/photo_091_53245728575_o.jpg' # this is the first image taken in order of the pair
-REFERENCE_PATH = 'earth_img/photo_092_53245529093_o.jpg' # this is the second image taken in order of the pair
+# TARGET_PATH = 'earth_img/photo_091_53245728575_o.jpg' # this is the first image taken in order of the pair
+# REFERENCE_PATH = 'earth_img/photo_092_53245529093_o.jpg' # this is the second image taken in order of the pair
 
-ABSOLUTE_PATH = os.path.dirname(os.path.abspath(__file__))
+# ABSOLUTE_PATH = os.path.dirname(os.path.abspath(__file__))
 
-LOG_PATH = 'tmp/speed_calculation.log'
-IMG_PATH = 'img_sets/'
-CSV_DATA_PATH = 'data_csv/data.csv'
-RESULTS_PATH = 'results/result.txt'
+LOG_PATH = 'tmp.log'
+IMG_PATH = 'images/'
+CSV_DATA_PATH = 'data.csv'
+RESULTS_PATH = 'result.txt'
 
 SCALE_FACTOR = 1
 MIN_MATCH_COUNT = 10
@@ -147,34 +147,6 @@ CAMERA_K = np.array([[FOCAL_X, 0, PRINCIPLE_POINT_X],
                      [0, 0, 1]])
 
 DEPTH_Z = 420000 #(4.2e+05) meters
-
-def setup():
-    """Setup the logging and create the image and data folders if they don't exist"""
-    # setup logging
-    if not os.path.exists(LOG_PATH):
-        os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
-    logfile(LOG_PATH) # log the output to a file
-    logger.info("successfully logged to file")
-
-    # create the image and data folders if they don't exist
-    if not os.path.exists(IMG_PATH):
-        os.makedirs(IMG_PATH)
-        logger.info(f"Created new image folder: {IMG_PATH}")
-
-    # create the data folder if it doesn't exist
-    if not os.path.exists(CSV_DATA_PATH):
-        os.makedirs(os.path.dirname(CSV_DATA_PATH), exist_ok=True)
-        with open(CSV_DATA_PATH, 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(["timestamp", "velocity", "source1", "source2"])
-        logger.info(f"Created new CSV file: {CSV_DATA_PATH}")
-
-    # create the results file if it doesn't exist
-    if not os.path.exists(RESULTS_PATH):
-        os.makedirs(os.path.dirname(RESULTS_PATH), exist_ok=True)
-        with open(RESULTS_PATH, 'w') as file:
-            file.write("Velocity: 0.0 km/s")
-        logger.info(f"Created new results file: {RESULTS_PATH}")
 
 
 def load_image(image_path: str):
@@ -353,7 +325,6 @@ def calculate_IQR_mean_velocity(velocities: list, mid_perc: float=50) -> float:
     iqr_mean_velocity = np.mean(iqr_velocities)
     return iqr_mean_velocity
 
-
 def calculate_trimmed_mean_velocity(velocities: list, trim: float=0.1) -> float:
     """Calculate the trimmed mean velocity from a list of velocity estimates."""
     velocities_trimmed_mean = trim_mean(velocities, trim)
@@ -451,69 +422,11 @@ def save_velocities_to_txt(velocities: list, filename: str = 'result.txt', head:
     except Exception as e:
         logger.error(f"Error saving velocities to {filename}: {e}")
 
-def calculate_velocity_set(image_folder: str) -> None:
-    """Calculate the velocity of the ISS from a set of images."""
-
-    # log the time
-    time_start = datetime.now()
-    print(f"Time: {time_start}")
-    # open the earth images folder
-    velocities = []
-    imgs_src = []
-    earth_imgs = os.listdir(image_folder)
-    if True:
-        for i in range(len(earth_imgs) - 1):
-            logger.info(f"Processing images {earth_imgs[i]} and {earth_imgs[i+1]}")
-            img1 = image_folder + earth_imgs[i]
-            img2 = image_folder + earth_imgs[i+1]
-            time_delta = (extract_time_from_exif(img2) - extract_time_from_exif(img1)).total_seconds()
-            if time_delta < 0:
-                logger.warning(f"Negative time delta detected for {img1} and {img2}.")
-            vel = calculate_velocity(img1, img2, time_delta)
-            if vel is not None:
-                if vel < 0:
-                        logger.warning(f"Negative velocity detected for {img1} and {img2}.")
-                if vel == 0:
-                        logger.warning(f"Zero velocity detected for {img1} and {img2}.")
-                velocities.append(np.abs(vel))
-                imgs_src.append((img1, img2))
-                logger.info(f"Velocity: {vel} km/s")
-            
-    # save the velocities to a csv file
-    save_velocities_to_csv(velocities, src12=imgs_src, filename=CSV_DATA_PATH)
-    #velocities = [v[1] for v in load_velocities_from_csv()]
-    mean_velocity = calculate_mean_velocity(velocities)
-    median_velocity = calculate_median_velocity(velocities)
-    mode_velocity = calculate_mode_velocity(velocities)
-    iqr_mean_velocity = calculate_IQR_mean_velocity(velocities)
-    trimmed_mean_velocity = calculate_trimmed_mean_velocity(velocities)
-    time_finish = datetime.now()
-    compute_time = time_finish - time_start
-
-
-    vels = [f"mean velocity: {mean_velocity}", f"median velocity: {median_velocity}", f"mode velocity: {mode_velocity}", f"IQR mean velocity: {iqr_mean_velocity}", f"trimmed mean velocity: {trimmed_mean_velocity}"]
-    save_velocities_to_txt(vels, filename=RESULTS_PATH, head=f"Compute Time: {compute_time}, Folder: {image_folder}\n")
-
-
-def main():
-    setup()
-    # finds list of folders in the img_sets folder
-    folders = os.listdir(IMG_PATH)
-    print(folders)
-    time_start = datetime.now()
-    for folder in folders:
-        calculate_velocity_set(IMG_PATH + folder + '/')
-    time_finish = datetime.now()
-    comp_time = time_finish - time_start
-    print(f"Time taken: {comp_time}")
-    sys.exit(0)
-
 def get_time_from_filename(filename: str) -> datetime:
     """Extract the time from the filename. Assumes the filename is formatted as: "img_YYYYmmdd_HHMMSS_mmm.jpeg" where mmm are the milliseconds."""
-    base_name = os.path.basename(filename)
     try:
         # Remove the "img_" prefix and file extension
-        timestamp_str = base_name.replace("img_", "").split(".")[0] # e.g. "20230430_073756_123"
+        timestamp_str = filename.replace("img_", "").split(".")[0]  # e.g. "20230430_073756_123"
         parts = timestamp_str.split('_')
         if len(parts) != 3:
             raise ValueError(f"Invalid filename format: {filename}")
@@ -622,9 +535,14 @@ def image_capture_and_processing(cam, n_images: int=10, interval: float=5.0, sav
     iqr_mean_velocity = calculate_IQR_mean_velocity(vels)
     trimmed_mean_velocity = calculate_trimmed_mean_velocity(vels)
 
-    # # delete every other image to save space
+    # delete every other image to save space without using the os module
     # for i in range(0, len(img_paths), 2):
-    #     os.remove(img_paths[i])
+    #     try:
+    #         os.remove(img_paths[i])
+    #     except Exception as e:
+    #         logger.error(f"Error deleting image {img_paths[i]}: {e}")
+
+
   
     end_time = datetime.now()
     elapsed_time = end_time - start_time
@@ -638,7 +556,7 @@ def image_capture_and_processing(cam, n_images: int=10, interval: float=5.0, sav
 
 
 def main():
-    setup()
+
     # setup the camera
     cam = Camera()
     #cam.greyscale() = True
@@ -652,55 +570,8 @@ def main():
     remaining_time = PROGRAM_TIMEOUT - (time_finish - PROGRAM_START_TIME).total_seconds()
     logger.info(f"Time remaining: {remaining_time}")
     logger.info(f"Rolling IQR mean velocity: {rolling_iqr_mean_velocity} km/s")
-    sys.exit(0)
+    return
 
-# def main():
-#     setup()
-#     # log the time
-#     time = datetime.now()
-#     print(f"Time: {time}")
-#     # open the earth images folder
-#     velocities = []                 
-#     earth_img_folder = os.listdir('earth_img')
-#     if True:
-#         for i in range(len(earth_img_folder) - 1):
-#             img1 = 'earth_img/' + earth_img_folder[i]
-#             img2 = 'earth_img/' + earth_img_folder[i+1]
-#             time_delta = (extract_time_from_exif(img2) - extract_time_from_exif(img1)).total_seconds()
-#             if time_delta < 0:
-#                 logger.warning(f"Negative time delta detected for {img1} and {img2}.")
-#             vel = np.abs(calculate_velocity(img1, img2, time_delta))
-#             #vel = calculate_velocity(img1, img2)
-#             if vel < 0:
-#                     logger.warning(f"Negative velocity detected for {img1} and {img2}.")
-#             if vel == 0:
-#                     logger.warning(f"Zero velocity detected for {img1} and {img2}.")
-#             velocities.append(vel)
-#             logger.info(f"Velocity: {vel} km/s")
-            
-#     # save the velocities to a csv file
-#     save_velocities_to_csv(velocities)
-#     time_finish = datetime.now()
-
-#     # access the velocities from the csv file
-#     velocities = [v[1] for v in load_velocities_from_csv()]
-#     print(velocities)
-
-#     logger.debug(f"length of velocities: {len(velocities)}")
-#     logger.info(f"Time finish: {time_finish}")
-#     logger.info(f"Time taken: {time_finish - time}")
-
-#     logger.info(f"mean velocity: {calculate_mean_velocity(velocities)} km/s")
-#     logger.info(f"median velocity: {calculate_median_velocity(velocities)} km/s")
-#     logger.info(f"mode velocity: {calculate_mode_velocity(velocities)} km/s")
-#     logger.info(f"IQR mean velocity: {calculate_IQR_mean_velocity(velocities)} km/s")
-#     logger.info(f"trimmed mean velocity: {calculate_trimmed_mean_velocity(velocities)} km/s")
-
-    # print(calculate_velocity(TARGET_PATH, REFERENCE_PATH, plot_matches = True)) # for testing
 
 if __name__ == "__main__":
     main()
-
-# 2022:01:15 04:51:32
-# 2022:01:15 04:51:41
-# time difference: 9 seconds
